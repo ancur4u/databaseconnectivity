@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="7c680c3c-20ce-41b6-9d27-9446136b4d6d" >
+	</file:config>
+	<flow name="createTableFlow" doc:id="8e46537b-9b59-45a4-89e5-cd3d2daa3577" >
+		<http:listener doc:name="Listener" doc:id="6b8476f6-9c6c-49af-b8fd-36f692984efe" config-ref="Domain_HTTP_Listener_config" path="/createTable" allowedMethods="GET"/>
+		<db:execute-ddl doc:name="Execute DDL" doc:id="8835075d-e0d4-447b-8de0-6ef1858f3445" config-ref="Database_Config">
+			<db:sql ><![CDATA[create table training.accounts(
+accountID int(11),
+name text,
+street text,
+city text,
+state text,
+postal int(11),
+country text
+)]]></db:sql>
+		</db:execute-ddl>
+		<ee:transform doc:name="Transform Message" doc:id="f0ca92fe-b85e-4008-bd8e-341923dc720c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Accounts Table created successfully!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="2db4d696-d7c6-4919-b445-027bbed8d4f6" message="#[payload]"/>
+	</flow>
+	<flow name="bulkInsertFlow" doc:id="57747944-9fe9-41cb-b627-cbf7df060946" >
+		<http:listener doc:name="Listener" doc:id="08a7d509-dc08-4f8e-8fe8-7db294afbbf8" config-ref="Domain_HTTP_Listener_config" path="/bulkInsert"/>
+		<file:read doc:name="Read" doc:id="129d5b88-91d8-497b-bd15-e5818bc91a69" config-ref="File_Config" path="/Users/ankurparashar/AnypointStudio/studio-workspace/databaseconnectivity/src/main/resources/accounts.csv"/>
+		<ee:transform doc:name="Transform Message" doc:id="bc33cc91-9f67-45ea-a870-a597cfc7a5b0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map{
+	accountID: $."accountID",
+	name: $."name",
+	street: $."street",
+	city: $."city",
+	state: $."state",
+	postal: $."postal",
+	country: $."country"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:bulk-insert doc:name="Bulk insert" doc:id="37c8b91f-4a98-4c8e-bfbf-731826c9f366" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO training.accounts(accountID,name,street,city,state,country,postal) VALUES (:accountID,:name,:street,:city,:state,:country,:postal)]]></db:sql>
+		</db:bulk-insert>
+		<ee:transform doc:name="Transform Message" doc:id="9c83a1f8-9eb2-450a-91ef-3c20891e03da" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Data inserted from external file successfully !"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="461f2a6a-5076-4b50-bb4e-7443e0dd2248" message="#[payload]"/>
+	</flow>
+	<flow name="selectAllFlow" doc:id="1082d7b2-267e-4344-b913-b9dc520ecd2a" initialState="started">
+		<http:listener doc:name="Listener" doc:id="f8bd564f-f68b-4b8a-894d-85ab4f977211" config-ref="Domain_HTTP_Listener_config" path="/selectall"/>
+		<db:select doc:name="Select" doc:id="19757c25-bb20-4138-bddd-e4b46af9be69" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM training.accounts]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="0a363f91-b7c8-4e49-a2e7-48c073958164" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="a1427c77-ad6b-4632-98a5-99f45a1ccba1" message="#[payload]"/>
+	</flow>
+	<flow name="selectSpecificFlow" doc:id="b28e245c-f33f-4a41-93bf-0e27bd3a13c6" initialState="started">
+		<http:listener doc:name="Listener" doc:id="14921fe8-27b8-4f01-883c-1e7fb32f41b0" config-ref="Domain_HTTP_Listener_config" path="/findStateWise"/>
+		<db:select doc:name="Select" doc:id="136fda9e-e74d-4e03-963e-0b78f436e00a" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM training.accounts where state=:state]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{"state": attributes.queryParams.state}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="e44d4890-2914-497f-9061-315bd73b21dd" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="72b25bbd-02b1-4954-b8b2-b8ab5d9a6ea2" message="#[payload]"/>
+	</flow>
+	<flow name="addNewAccountFlow" doc:id="aae66136-ef47-48ec-9e3e-d449ac74570f" initialState="started">
+		<http:listener doc:name="Listener" doc:id="470c78c7-da64-400a-b63d-e1d40126ac35" config-ref="Domain_HTTP_Listener_config" path="/newAccount" allowedMethods="POST"/>
+		<db:insert doc:name="Insert" doc:id="a09ab6ff-fe8e-4ee7-90cb-bbd4fd559e8c" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into training.accounts (accountID, name, street, city,state,postal,country)
+values (:accountID, :name, :street, :city, :state, :postal, :country)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{"accountID": payload.accountID,
+	"name": payload.name,
+	"street": payload.street,
+	"city": payload.city,
+	"state": payload.state,
+	"postal": payload.postal,
+	"country":payload.country
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="8c7ea7b3-1b26-412b-b11d-177e114bef56" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "new account created successfully!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="a186e1e3-a41b-47cb-a846-2591745c3ae0" message="#[payload]"/>
+	</flow>
+	<flow name="updateAccountFlow" doc:id="c95e87a1-6d0d-4909-a0ff-247339718f1a" >
+		<http:listener doc:name="Listener" doc:id="2e33859d-4c3a-4623-aa45-36d3e89f9e76" config-ref="Domain_HTTP_Listener_config" path="/updateAccount" allowedMethods="PATCH"/>
+		<db:update doc:name="Update" doc:id="3683eb89-e940-4c9c-99fe-f57b1f9c646c" config-ref="Database_Config">
+			<db:sql ><![CDATA[UPDATE  training.accounts
+SET country=:country, state=:state, postal=:postal, name=:name,street=:street, city=:city
+WHERE accountID=:accountID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"accountID": payload.accountID,
+	"country": payload.country,
+	"state": payload.state,
+	"postal": payload.postal,
+	"name": payload.name,
+	"street": payload.street,
+	"city":payload.city
+}]]]></db:input-parameters>
+		</db:update>
+		<ee:transform doc:name="Transform Message" doc:id="381faf61-0fb7-4ec1-bb9a-1fba8c03fc14" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Account updated successfully!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="bdd28032-8393-466a-8cf1-74c0df0c2c10" message="#[payload]"/>
+	</flow>
+	<flow name="deleteSpecificAccountFlow" doc:id="aa8d8b52-e748-49d5-817e-cd1039358120" >
+		<http:listener doc:name="Listener" doc:id="2bccb08f-7e21-4552-964c-708183ae4ca9" config-ref="Domain_HTTP_Listener_config" path="/deleteAccount" allowedMethods="DELETE"/>
+		<db:delete doc:name="Delete" doc:id="bb4a255f-4fd0-4298-8511-1311200e5346" config-ref="Database_Config">
+			<db:sql ><![CDATA[DELETE from training.accounts WHERE accountID=:accountID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{"accountID": payload.accountID}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="1ee6746b-7a6c-433d-bae5-c52a0d808ccf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "account deleted successfully !"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="14d261ea-92e7-4e26-9915-0284594be0d7" message="#[payload]"/>
+	</flow>
+	<flow name="cleanupDatabaseFlow" doc:id="44833d88-7562-4098-bb4d-927583c7c6d1" >
+		<http:listener doc:name="Listener" doc:id="5d4336b0-eff1-4216-8654-8ad40a300856" config-ref="Domain_HTTP_Listener_config" path="/cleanDatabase"/>
+		<db:execute-ddl doc:name="Execute DDL" doc:id="5b470e4a-0b00-4675-8ab2-13fa17aca2dc" config-ref="Database_Config">
+			<db:sql ><![CDATA[Drop table training.accounts]]></db:sql>
+		</db:execute-ddl>
+		<ee:transform doc:name="Transform Message" doc:id="2eeb8dcb-9736-4262-aa6d-e3a617fbaae4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Table deleted!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="aae40868-daf5-4483-8e24-eab7771cb3df" message="#[payload]"/>
+	</flow>
+</mule>
